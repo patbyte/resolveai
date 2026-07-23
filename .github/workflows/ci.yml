@@ -30,7 +30,7 @@ jobs:
       DATABASE_URL: postgresql://resolveai:resolveai@localhost:5432/resolveai
       INTEGRATION_DATABASE_URL: postgresql://resolveai:resolveai@localhost:5432/resolveai
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
