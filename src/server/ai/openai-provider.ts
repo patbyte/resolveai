@@ -24,6 +24,18 @@ const supportDraftJsonSchema = {
 
 type ResponsesApiResult = { output_text?: string };
 
+export class AiProviderError extends Error {
+  constructor(
+    message: string,
+    readonly code: "upstream_rejected" | "invalid_response",
+    readonly retryable: boolean,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = "AiProviderError";
+  }
+}
+
 export class OpenAiDraftProvider implements AiDraftProvider {
   readonly name = "openai-responses";
 
@@ -60,14 +72,42 @@ export class OpenAiDraftProvider implements AiDraftProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI request failed with status ${response.status}`);
+      throw new AiProviderError(
+        `AI provider rejected the request with status ${response.status}`,
+        "upstream_rejected",
+        response.status === 408 || response.status === 429 || response.status >= 500
+      );
     }
 
-    const payload = (await response.json()) as ResponsesApiResult;
+    let payload: ResponsesApiResult;
+    try {
+      payload = (await response.json()) as ResponsesApiResult;
+    } catch (error) {
+      throw new AiProviderError(
+        "AI provider returned invalid JSON",
+        "invalid_response",
+        false,
+        { cause: error }
+      );
+    }
+
     if (!payload.output_text) {
-      throw new Error("OpenAI response did not include structured output");
+      throw new AiProviderError(
+        "AI provider response did not include structured output",
+        "invalid_response",
+        false
+      );
     }
 
-    return supportDraftSchema.parse(JSON.parse(payload.output_text));
+    try {
+      return supportDraftSchema.parse(JSON.parse(payload.output_text));
+    } catch (error) {
+      throw new AiProviderError(
+        "AI provider response did not match the draft contract",
+        "invalid_response",
+        false,
+        { cause: error }
+      );
+    }
   }
 }

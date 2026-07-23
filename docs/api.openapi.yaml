@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+  title: ResolveAI API
+  version: 0.1.0
+  description: API contract for the shipped safe-drafting vertical slice.
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Report process health and provider configuration
+      responses:
+        "200":
+          description: The application can serve requests.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/tickets/{ticketId}/draft:
+    post:
+      operationId: createTicketDraft
+      summary: Generate a grounded draft for human review
+      description: >
+        Demo identity headers model the authorization boundary but are not
+        production authentication. No response from this operation is sent to a
+        customer.
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Organization-Id
+          schema:
+            type: string
+          description: Demo only. Production requires verified session claims.
+        - in: header
+          name: X-User-Id
+          schema:
+            type: string
+          description: Demo only. Production requires verified session claims.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DraftRequest"
+      responses:
+        "200":
+          description: A validated draft that still requires human review.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftResponse"
+        "400":
+          description: The request body violates the contract.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "404":
+          description: The ticket is absent or outside the actor's tenant.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+        "429":
+          description: The actor exceeded the current generation budget.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+            Retry-After:
+              schema:
+                type: integer
+        "503":
+          description: Drafting failed safely; no customer message was sent.
+          headers:
+            X-Request-Id:
+              $ref: "#/components/headers/RequestId"
+components:
+  headers:
+    RequestId:
+      description: Server-generated identifier used to correlate logs.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, service, version, checks, timestamp]
+      properties:
+        status:
+          const: ok
+        service:
+          const: resolveai-web
+        version:
+          type: string
+        checks:
+          type: object
+          additionalProperties: false
+          required: [application, aiProvider]
+          properties:
+            application:
+              const: ok
+            aiProvider:
+              enum: [configured, demo]
+        timestamp:
+          type: string
+          format: date-time
+    DraftRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        tone:
+          enum: [warm, direct, technical]
+          default: warm
+        agentNote:
+          type: string
+          maxLength: 500
+    Draft:
+      type: object
+      additionalProperties: false
+      required:
+        - subject
+        - body
+        - confidence
+        - needsHumanReview
+        - citedKnowledgeIds
+        - riskFlags
+        - provider
+      properties:
+        subject:
+          type: string
+          maxLength: 160
+        body:
+          type: string
+          maxLength: 4000
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        needsHumanReview:
+          const: true
+        citedKnowledgeIds:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+        riskFlags:
+          type: array
+          maxItems: 8
+          items:
+            type: string
+        provider:
+          type: string
+    DraftResponse:
+      type: object
+      additionalProperties: false
+      required: [draft, rateLimit, requestId]
+      properties:
+        draft:
+          $ref: "#/components/schemas/Draft"
+        rateLimit:
+          type: object
+          additionalProperties: false
+          required: [allowed, remaining, retryAfterSeconds]
+          properties:
+            allowed:
+              type: boolean
+            remaining:
+              type: integer
+              minimum: 0
+            retryAfterSeconds:
+              type: integer
+              minimum: 1
+        requestId:
+          type: string
+          format: uuid

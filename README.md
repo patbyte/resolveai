@@ -24,7 +24,8 @@ of the product and the architecture.
 - Prompt boundary escaping and untrusted-content instructions
 - Citation allow-listing and mandatory human review
 - Per-actor generation rate limiting
-- Health endpoint, tests, CI, and production Docker image
+- Correlated structured logs without customer content
+- Health endpoint, provider contract tests, CI, and production Docker image
 
 No AI-generated message is sent automatically.
 
@@ -50,6 +51,26 @@ The framework boundary is deliberately thin. Authorization and post-generation
 guardrails live in the domain service and are independently testable. See
 [`docs/architecture.md`](docs/architecture.md) and the architecture decisions in
 [`docs/decisions`](docs/decisions).
+
+## Production-readiness evidence
+
+This repository treats operability and AI quality as implementation concerns,
+not deployment afterthoughts:
+
+- [`docs/api.openapi.yaml`](docs/api.openapi.yaml) defines the shipped HTTP
+  contract, rate-limit behavior, and correlation identifiers.
+- [`docs/threat-model.md`](docs/threat-model.md) maps assets, trust boundaries,
+  abuse cases, mitigations, and accepted risks.
+- [`docs/runbook.md`](docs/runbook.md) covers provider degradation, rate-limit
+  incidents, tenant-isolation alarms, rollback, and evidence preservation.
+- [`docs/evaluation-strategy.md`](docs/evaluation-strategy.md) defines offline
+  quality and safety gates for the retrieval milestone.
+- Provider tests verify strict structured output, storage controls, stable error
+  classification, and runtime schema rejection.
+
+These artifacts describe the current slice honestly. PostgreSQL, Redis,
+retrieval, and cloud infrastructure remain milestones with explicit acceptance
+criteria rather than appearing as shipped features.
 
 ## Run locally
 
@@ -85,6 +106,16 @@ npm run build
 
 CI runs the same checks for pushes and pull requests.
 
+## Engineering decisions
+
+| Concern | Decision | Tradeoff |
+| --- | --- | --- |
+| AI integration | Vendor-neutral provider interface | Small abstraction cost; deterministic tests and easier fallback |
+| Model output | Strict schema plus runtime validation | Less model flexibility; predictable application behavior |
+| Grounding | Citation IDs intersected with approved context | Unsupported sources are dropped, not silently trusted |
+| Delivery | Human approval is mandatory | More agent effort; no autonomous customer-facing mistakes |
+| Demo identity | Header adapter behind an explicit boundary | Easy local use; intentionally unsuitable for production auth |
+
 ## Security model
 
 - Organization identity is resolved before ticket lookup.
@@ -106,7 +137,8 @@ behavior. Planned milestones include PostgreSQL persistence and row-level
 security, Redis-backed queues and rate limits, document ingestion and retrieval,
 evaluation datasets, audit events, OpenTelemetry, and cloud infrastructure.
 
-See [`docs/roadmap.md`](docs/roadmap.md) for acceptance criteria.
+See [`docs/roadmap.md`](docs/roadmap.md) for acceptance criteria and the
+[`operations runbook`](docs/runbook.md) for current incident procedures.
 
 ## License
 
