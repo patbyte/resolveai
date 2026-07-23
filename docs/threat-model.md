@@ -10,7 +10,7 @@ or process-local limiter is suitable for production traffic.
 
 | Asset | Primary risk | Current control |
 | --- | --- | --- |
-| Tenant ticket content | Cross-tenant disclosure | Tenant-scoped lookup and defense-in-depth domain check |
+| Tenant ticket content | Cross-tenant disclosure | Forced RLS, composite tenant keys, and defense-in-depth domain check |
 | Approved knowledge | Poisoning or unapproved citation | Explicit context set and citation allow-list |
 | Customer messages | Prompt injection and unintended retention | Untrusted-data boundaries and provider storage disabled |
 | Provider credential | Disclosure through source, logs, or errors | Environment injection and sanitized operational errors |
@@ -28,8 +28,11 @@ boundaries. Model input and output remain untrusted even after authentication.
 An actor requests a known ticket identifier from another organization.
 
 - The lookup result is indistinguishable from a missing record.
+- PostgreSQL applies transaction-local tenant context under a non-owner role.
+- Forced RLS filters tickets and all hydrated relationships.
+- Composite foreign keys prevent cross-tenant message and knowledge links.
 - The domain service repeats the tenant check before provider invocation.
-- Production acceptance requires database row-level security integration tests.
+- Integration tests verify context cannot leak through pooled connections.
 
 ### Prompt injection through customer content
 
@@ -71,7 +74,8 @@ An exception contains ticket text, a provider response, or a credential.
 
 - Identity headers are forgeable.
 - Rate-limit state is local to one process and resets on restart.
-- Demo tickets are in application memory.
+- Demo mode keeps synthetic tickets in application memory.
+- Production credential separation and verified session claims are not shipped.
 - There is no immutable audit store.
 - Knowledge is curated fixture data rather than an ingestion pipeline.
 

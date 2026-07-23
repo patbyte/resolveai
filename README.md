@@ -24,8 +24,10 @@ of the product and the architecture.
 - Prompt boundary escaping and untrusted-content instructions
 - Citation allow-listing and mandatory human review
 - Per-actor generation rate limiting
+- PostgreSQL ticket repository with forced row-level security
+- Transaction-scoped tenant context that cannot leak through the connection pool
 - Correlated structured logs without customer content
-- Health endpoint, provider contract tests, CI, and production Docker image
+- Unit and PostgreSQL integration tests, CI, and production Docker image
 
 No AI-generated message is sent automatically.
 
@@ -35,7 +37,10 @@ No AI-generated message is sent automatically.
 flowchart LR
   Browser[Next.js workspace] --> Route[Draft API route]
   Route --> Auth[Tenant authorization]
-  Auth --> Service[Draft domain service]
+  Auth --> Store{Ticket repository}
+  Store --> DemoStore[Deterministic fixtures]
+  Store --> Postgres[(PostgreSQL + RLS)]
+  Store --> Service[Draft domain service]
   Service --> Prompt[Prompt boundary]
   Prompt --> Provider{AI provider}
   Provider --> Demo[Deterministic demo]
@@ -43,7 +48,6 @@ flowchart LR
   Service --> Guard[Citation and review guard]
   Guard --> Browser
 
-  Postgres[(PostgreSQL)] -. persistence milestone .-> Service
   Redis[(Redis / jobs)] -. production rate limits .-> Route
 ```
 
@@ -67,10 +71,13 @@ not deployment afterthoughts:
   quality and safety gates for the retrieval milestone.
 - Provider tests verify strict structured output, storage controls, stable error
   classification, and runtime schema rejection.
+- PostgreSQL integration tests run migrations against a real database and prove
+  same-tenant hydration, cross-tenant isolation, fail-closed context, and pooled
+  transaction cleanup.
 
-These artifacts describe the current slice honestly. PostgreSQL, Redis,
-retrieval, and cloud infrastructure remain milestones with explicit acceptance
-criteria rather than appearing as shipped features.
+These artifacts describe the current slice honestly. Production authentication,
+Redis, retrieval, and cloud infrastructure remain milestones with explicit
+acceptance criteria rather than appearing as shipped features.
 
 ## Run locally
 
@@ -85,6 +92,18 @@ npm run dev
 Open `http://localhost:3000`. The app uses a deterministic provider unless
 `OPENAI_API_KEY` is set, so the complete review workflow works without external
 services or API spend.
+
+To exercise the durable ticket store:
+
+```bash
+docker compose up -d postgres
+npm run db:migrate
+npm run db:seed
+TICKET_STORE=postgres npm run dev
+```
+
+The application role, tenant policies, schema, and indexes are created by the
+checksum-verified migration runner. Seed data is synthetic and idempotent.
 
 To enable the live AI provider:
 
@@ -101,10 +120,11 @@ Keep real credentials in environment or secret storage; never commit them.
 npm run lint
 npm run typecheck
 npm test
+npm run test:integration
 npm run build
 ```
 
-CI runs the same checks for pushes and pull requests.
+CI runs the same checks against PostgreSQL 17 for pushes and pull requests.
 
 ## Engineering decisions
 

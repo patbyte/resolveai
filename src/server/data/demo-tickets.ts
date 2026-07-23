@@ -98,7 +98,3 @@ export const demoTickets: Ticket[] = [
     knowledge: []
   }
 ];
-
-export function findDemoTicket(id: string) {
-  return demoTickets.find((ticket) => ticket.id === id);
-}

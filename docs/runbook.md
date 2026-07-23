@@ -3,7 +3,7 @@
 ## Service signals
 
 - `GET /api/health` confirms the process can serve requests and reports whether
-  the live or deterministic provider is configured.
+  the live or deterministic provider and PostgreSQL or demo store are configured.
 - Every draft response includes `X-Request-Id`; application events use the same
   identifier.
 - `draft_generated`, `draft_rate_limited`, and `draft_generation_failed` are the
@@ -48,6 +48,20 @@ Treat any suspected cross-tenant access as a high-severity security incident.
    applicable response policy.
 5. Add a regression test before restoring service.
 
+## Database degradation
+
+Symptoms: elevated 503 responses in PostgreSQL mode, connection timeouts, or
+`draft_generation_failed` events without a provider incident.
+
+1. Confirm the deployment is configured for the intended ticket store.
+2. Check database reachability, connection saturation, locks, and recent
+   migrations using the request identifier and deployment version.
+3. Do not switch a real environment to the synthetic demo store.
+4. Roll back the application image if a query contract changed. Database
+   migrations must remain forward-compatible.
+5. Restore service only after a same-tenant read, cross-tenant rejection, and
+   pooled-context integration test pass.
+
 ## Prompt injection or unsafe draft
 
 1. Do not send the draft.
@@ -64,5 +78,5 @@ Treat any suspected cross-tenant access as a high-severity security incident.
 3. Run a synthetic same-tenant draft and a cross-tenant rejection check.
 4. Retain the failed image and correlated events for diagnosis.
 
-Database rollback procedures will be added with the persistence milestone.
-Forward-compatible migrations are required before that milestone can deploy.
+Destructive down migrations are intentionally absent. Production migrations
+must use expand-and-contract changes so application rollback remains possible.
