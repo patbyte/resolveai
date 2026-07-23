@@ -8,10 +8,11 @@
 - Structured output, grounding validation, and mandatory human review
 - Unit tests, CI, health endpoint, and production container
 
-## Milestone 2 — Durable multi-tenant core
+## Milestone 2 — Durable multi-tenant core (in progress)
 
-- PostgreSQL repositories and migrations
-- Row-level security verified by integration tests
+- [x] PostgreSQL ticket repository and checksum-verified migrations
+- [x] Forced row-level security verified against PostgreSQL in CI
+- [x] Composite tenant keys and transaction-scoped pooled connections
 - Session authentication and role-based authorization
 - Idempotent audit event recording
 - Redis-backed distributed rate limiting

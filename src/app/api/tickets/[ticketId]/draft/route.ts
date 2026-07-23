@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { draftRequestSchema } from "@/domain/ai/schemas";
-import { findDemoTicket } from "@/server/data/demo-tickets";
 import { createDraftService } from "@/server/ai/service";
 import { getRequestActor } from "@/server/auth/request-actor";
+import { createTicketRepository } from "@/server/data/ticket-repository";
 import { logEvent } from "@/server/observability/logger";
 import { checkRateLimit } from "@/server/security/rate-limit";
 
@@ -35,9 +35,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const { ticketId } = await context.params;
-    const ticket = findDemoTicket(ticketId);
+    const repository = await createTicketRepository();
+    const ticket = await repository.findById(actor, ticketId);
 
-    if (!ticket || ticket.organizationId !== actor.organizationId) {
+    if (!ticket) {
       return NextResponse.json(
         { error: "Ticket not found.", requestId },
         { status: 404, headers: { "X-Request-Id": requestId } }

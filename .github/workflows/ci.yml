@@ -12,6 +12,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: resolveai
+          POSTGRES_USER: resolveai
+          POSTGRES_PASSWORD: resolveai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U resolveai"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://resolveai:resolveai@localhost:5432/resolveai
+      INTEGRATION_DATABASE_URL: postgresql://resolveai:resolveai@localhost:5432/resolveai
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,4 +39,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run db:migrate
+      - run: npm run test:integration
       - run: npm run build
