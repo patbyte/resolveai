@@ -1,9 +1,9 @@
 # ResolveAI
 
-ResolveAI is a production-minded support operations workspace that pairs human
-judgment with grounded AI assistance. Agents can review customer context,
-approved knowledge, and a structured response draft without allowing AI to send
-messages or cross tenant boundaries.
+ResolveAI is a portfolio support workspace for reviewing customer conversations,
+consulting approved knowledge, and generating editable AI reply drafts. It
+demonstrates a human review workflow, structured AI output, and tenant-scoped
+database reads. It is a local application slice, not a deployed customer service.
 
 ![ResolveAI application interface](docs/assets/product-preview.svg)
 
@@ -24,12 +24,15 @@ of the product and the architecture.
 - Prompt boundary escaping and untrusted-content instructions
 - Citation allow-listing and mandatory human review
 - Per-actor generation rate limiting
-- PostgreSQL ticket repository with forced row-level security
+- PostgreSQL ticket read repository with forced row-level security
 - Transaction-scoped tenant context that cannot leak through the connection pool
 - Correlated structured logs without customer content
 - Unit and PostgreSQL integration tests, CI, and production Docker image
 
-No AI-generated message is sent automatically.
+Every generated draft is marked for human review. There is no send endpoint or
+saved approval workflow; the **Approve draft** button is currently a UI
+placeholder. The inbox and conversations render demo fixtures even when the
+draft API is configured to read ticket context from PostgreSQL.
 
 ## Architecture
 
@@ -89,9 +92,26 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. The app uses a deterministic provider unless
-`OPENAI_API_KEY` is set, so the complete review workflow works without external
+Open `http://localhost:3000`. With `OPENAI_API_KEY` unset and the default
+`TICKET_STORE=demo`, ticket review and draft generation work without external
 services or API spend.
+
+### Local demo walkthrough
+
+1. Select **Team members cannot access our workspace** and review the
+   conversation and the two approved knowledge excerpts.
+2. Click **Generate draft**. The deterministic provider returns an editable
+   reply about expired invitations and the need to verify the billing event.
+   The panel shows the approved-source count and **Review required**.
+3. Edit the draft locally or click **Discard**. Edits are not persisted, and
+   **Approve draft** does not save or send anything in this slice.
+4. Select **Webhook deliveries are arriving twice** to try a second grounded
+   draft. A ticket with no approved knowledge has drafting disabled.
+
+All customers, conversations, and knowledge in the demo are synthetic. The
+[interface preview](docs/assets/product-preview.svg) provides a static overview.
+
+### PostgreSQL ticket context
 
 To exercise the durable ticket store:
 
@@ -104,6 +124,10 @@ TICKET_STORE=postgres npm run dev
 
 The application role, tenant policies, schema, and indexes are created by the
 checksum-verified migration runner. Seed data is synthetic and idempotent.
+PostgreSQL mode reads persisted ticket context for draft generation; it does
+not yet persist edits or approvals or load the inbox from the database.
+
+### Live AI provider
 
 To enable the live AI provider:
 
@@ -133,7 +157,7 @@ CI runs the same checks against PostgreSQL 17 for pushes and pull requests.
 | AI integration | Vendor-neutral provider interface | Small abstraction cost; deterministic tests and easier fallback |
 | Model output | Strict schema plus runtime validation | Less model flexibility; predictable application behavior |
 | Grounding | Citation IDs intersected with approved context | Unsupported sources are dropped, not silently trusted |
-| Delivery | Human approval is mandatory | More agent effort; no autonomous customer-facing mistakes |
+| Review | Every draft is marked for human review; no send endpoint | Approval persistence and message delivery still need implementation |
 | Demo identity | Header adapter behind an explicit boundary | Easy local use; intentionally unsuitable for production auth |
 
 ## Security model
@@ -152,10 +176,16 @@ replaces them with verified session claims. See [`SECURITY.md`](SECURITY.md).
 
 ## Roadmap
 
-The repository intentionally distinguishes shipped behavior from designed
-behavior. Planned milestones include PostgreSQL persistence and row-level
-security, Redis-backed queues and rate limits, document ingestion and retrieval,
-evaluation datasets, audit events, OpenTelemetry, and cloud infrastructure.
+The PostgreSQL ticket read repository, migrations, forced row-level security,
+composite tenant keys, and transaction-scoped connection context are implemented.
+The durable multi-tenant core milestone remains in progress: production session
+authentication, role-based authorization, audit events, and distributed rate
+limiting are still planned.
+
+Further work includes loading the inbox from PostgreSQL, persisting edits and
+approvals, Redis-backed queues, document ingestion and retrieval, evaluation
+datasets, OpenTelemetry, and cloud infrastructure. The current demo identity
+adapter and synthetic data are not a production deployment.
 
 See [`docs/roadmap.md`](docs/roadmap.md) for acceptance criteria and the
 [`operations runbook`](docs/runbook.md) for current incident procedures.
